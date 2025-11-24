@@ -21,7 +21,7 @@ const getSeededRandom = (seed: number) => {
     return ((t ^ t >>> 14) >>> 0) / 4294967296;
 };
 
-const generateDeterministicNotes = (videoId: string, startTime: number, endTime: number): NoteEvent[] => {
+const generateDeterministicNotes = (videoId: string, startTime: number, endTime: number, keyboardSize: number = 61): NoteEvent[] => {
     const notes: NoteEvent[] = [];
     
     // 1. Initialize Seed from Video ID
@@ -33,179 +33,185 @@ const generateDeterministicNotes = (videoId: string, startTime: number, endTime:
     };
 
     // 2. Global Musical Parameters
-    const BASE_BPM = 80;
-    const BPM_VARIANCE = 50;
-    const BPM = BASE_BPM + Math.floor(rng() * BPM_VARIANCE); // 80 - 130 BPM
+    const BASE_BPM = 70;
+    const BPM = BASE_BPM + Math.floor(rng() * 40); // 70 - 110 BPM (Slower for piano ballad feel)
     const BEAT_DURATION = 60 / BPM;
     const BAR_DURATION = BEAT_DURATION * 4; // 4/4 Assumption
-    const SWING_FEEL = rng() > 0.6; // 40% chance of swing
-    const SWING_RATIO = SWING_FEEL ? 0.6 : 0.5; // Late 8th note for swing
 
     // Scale Logic
-    const isMinor = rng() > 0.5;
-    const rootNote = 58 + Math.floor(rng() * 12); // Bb3 to A4
+    const isMinor = rng() > 0.4;
+    // Root Note Selection based on Keyboard Range
+    // For 61 keys (C2-C7), we want to center the melody around C4/C5
+    const rootBase = 60; // Middle C
+    const rootNote = rootBase + Math.floor(rng() * 12) - 6; // F3 to E4 roughly as center
+
     const scaleIntervals = isMinor ? [0, 2, 3, 5, 7, 8, 10] : [0, 2, 4, 5, 7, 9, 11];
 
+    // Helper: Get MIDI pitch constrained by keyboard size
     const getMidiPitch = (degree: number, octaveOffset: number) => {
         const len = scaleIntervals.length;
-        // Normalize degree
         const oct = Math.floor(degree / len);
         const idx = ((degree % len) + len) % len;
-        return rootNote + (octaveOffset * 12) + (oct * 12) + scaleIntervals[idx];
+        let pitch = rootNote + (octaveOffset * 12) + (oct * 12) + scaleIntervals[idx];
+
+        // Constraint Logic
+        let minPitch = 36; // C2
+        let maxPitch = 96; // C7
+        if (keyboardSize === 49) { minPitch = 36; maxPitch = 84; }
+        if (keyboardSize === 88) { minPitch = 21; maxPitch = 108; }
+
+        while (pitch < minPitch) pitch += 12;
+        while (pitch > maxPitch) pitch -= 12;
+
+        return pitch;
     };
 
-    // 3. Structural Setup (Chord Progressions)
-    // We map bars to chord degrees (I=0, IV=3, V=4, vi=5)
-    // Common progressions: 1-5-6-4 (Pop), 2-5-1-6 (Jazz), 1-6-4-5 (Ballad)
+    // 3. Structural Setup (Sophisticated Chord Progressions)
+    // We map bars to chord degrees (I=0, IV=3, V=4, vi=5, ii=1, iii=2)
     const PROGRESSIONS = [
-        [0, 4, 5, 3], // I V vi IV
-        [1, 4, 0, 5], // ii V I vi
-        [0, 5, 3, 4], // I vi IV V
-        [5, 3, 0, 4]  // vi IV I V
+        [0, 5, 3, 4], // I vi IV V (Pop Standard)
+        [0, 4, 5, 3], // I V vi IV (Axis)
+        [1, 4, 0, 5], // ii V I vi (Jazz Turnaround)
+        [3, 4, 2, 5], // IV V iii vi (J-Pop / Royal Road)
+        [5, 3, 0, 4], // vi IV I V (Emotional)
+        [0, 3, 0, 4], // I IV I V (Simple)
     ];
     const progression = PROGRESSIONS[Math.floor(rng() * PROGRESSIONS.length)];
 
-    // Quantize time window to bars
     const startBar = Math.floor(startTime / BAR_DURATION);
     const endBar = Math.ceil(endTime / BAR_DURATION);
 
-    // State for smooth voice leading
-    let lastMelodyDegree = 0; // Root
+    let lastMelodyPitch = -1;
 
     for (let bar = startBar; bar < endBar; bar++) {
         const barStart = bar * BAR_DURATION;
         const chordDegree = progression[bar % 4];
-        const nextChordDegree = progression[(bar + 1) % 4];
 
-        // --- Layer A: BASS (Rhythmic Foundation) ---
-        // Pattern: Root on 1, maybe 5th or Octave on syncopated beats
+        // Determine Chord Type (Major/Minor/Dim)
+        // In Major scale: I(M), ii(m), iii(m), IV(M), V(M), vi(m), vii(d)
+        // In Minor scale: i(m), ii(d), III(M), iv(m), v(m), VI(M), VII(M)
+        // Simplified triad logic based on intervals from root
+
+        // --- Layer A: Left Hand (Piano Accompaniment) ---
+        const lhPattern = Math.floor(rng() * 3); // 0: Block, 1: Arpeggio, 2: Alberti-ish
+
+        // 1. Root Bass Note (Strong on Beat 1)
         const bassTime = Math.max(startTime, barStart);
         if (bassTime < endTime) {
-            notes.push({
+             notes.push({
                 id: `bass_${bar}_1`,
                 start_time: barStart,
-                duration: BEAT_DURATION * 1.2,
-                midi_pitch: getMidiPitch(chordDegree, -2), // 2 octaves down
-                velocity: 0.85,
-                confidence: 0.98
+                duration: BEAT_DURATION * 3, // Sustain bass
+                midi_pitch: getMidiPitch(chordDegree, -2), // Deep bass
+                velocity: 0.7,
+                confidence: 0.99
             });
+        }
 
-            // Syncopated Bass on "and" of beat 2 or 3?
-            if (rng() > 0.4) {
-                const beat3 = barStart + (BEAT_DURATION * 2);
-                if (beat3 >= startTime && beat3 < endTime) {
-                     // Play 5th or Octave
-                     const interval = rng() > 0.5 ? 4 : 0;
+        // 2. Chord Tones (Middle range)
+        if (lhPattern === 1) {
+            // Arpeggio (Root - 5th - 8th - 5th)
+            [0, 4, 7, 4].forEach((interval, i) => {
+                 const time = barStart + (i * BEAT_DURATION);
+                 if (time >= startTime && time < endTime) {
                      notes.push({
-                        id: `bass_${bar}_3`,
-                        start_time: beat3,
-                        duration: BEAT_DURATION,
-                        midi_pitch: getMidiPitch(chordDegree + interval, -2), 
-                        velocity: 0.75,
+                        id: `arp_${bar}_${i}`,
+                        start_time: time,
+                        duration: BEAT_DURATION * 1.1, // Legato
+                        midi_pitch: getMidiPitch(chordDegree + (interval/2), -1), // Rough approximation of intervals
+                        velocity: 0.5 + (i % 2 === 0 ? 0.1 : 0), // Accent on beat
                         confidence: 0.9
                     });
-                }
-            }
-        }
-
-        // --- Layer B: HARMONY (Chord Pads/Arps) ---
-        // Generates accompaniment based on intensity
-        const intensity = rng(); // 0-1
-        if (intensity > 0.3) {
-            // Play Chord Tones (1, 3, 5)
-            const chordTones = [0, 2, 4]; // Intervals relative to root
-            chordTones.forEach((interval, idx) => {
-                // Stagger start times slightly for strum effect
-                const strumDelay = idx * 0.03;
-                const time = barStart + BEAT_DURATION + strumDelay;
+                 }
+            });
+        } else {
+            // Rhythmic Chords (Beat 2 and 3 or 4)
+            const beats = lhPattern === 0 ? [1, 2] : [0.5, 1.5, 2.5, 3.5]; // Offbeats for pattern 2
+            beats.forEach((b, i) => {
+                const time = barStart + (b * BEAT_DURATION);
                 if (time >= startTime && time < endTime) {
-                    notes.push({
-                        id: `harm_${bar}_${idx}`,
-                        start_time: time,
-                        duration: BEAT_DURATION * 2, // Half note pad
-                        midi_pitch: getMidiPitch(chordDegree + interval, -1),
-                        velocity: 0.4 + (intensity * 0.2), // Softer
-                        confidence: 0.85
+                    // Play 3rd and 5th
+                    [2, 4].forEach((interval) => {
+                        notes.push({
+                            id: `chord_${bar}_${b}_${interval}`,
+                            start_time: time,
+                            duration: BEAT_DURATION * 0.8,
+                            midi_pitch: getMidiPitch(chordDegree + interval, -1),
+                            velocity: 0.45,
+                            confidence: 0.85
+                        });
                     });
                 }
             });
         }
 
-        // --- Layer C: MELODY (Phrasing & Contour) ---
-        // Use "Question & Answer" phrasing
-        // Even bars = Question (end on unstable note), Odd bars = Answer (resolve)
-        const isQuestion = bar % 2 === 0;
-        
+        // --- Layer B: Right Hand (Melody) ---
+        // Construct a motif
         let currentBeat = 0;
-        let notesInBar = 0;
 
         while (currentBeat < 4) {
-            // Rhythmic Decision: Quarter vs Eighth
-            // Swing Logic: If Eighth, the first is longer, second is shorter
-            let duration = 1; // Quarter
-            const rhythmRoll = rng();
+            let duration = 0.5; // Eighth default
+            const r = rng();
             
-            if (rhythmRoll > 0.7) duration = 2; // Half note (Pause)
-            else if (rhythmRoll < 0.3) duration = 0.5; // Eighth note
+            // Rhythm variety
+            if (r > 0.8) duration = 1.0; // Quarter
+            else if (r > 0.6) duration = 1.5; // Dotted Quarter
+            else if (r < 0.1) duration = 0.25; // 16th note run (rare)
 
             const noteTime = barStart + (currentBeat * BEAT_DURATION);
             
-            // Skip logic: Don't always play on every slot (create space)
-            const shouldPlay = (currentBeat === 0) || (rng() > 0.3);
+            // Phrasing: More active in bars 1-3, resolve in bar 4?
+            // Density: Not every beat needs a note
+            const density = (bar % 4 === 3) ? 0.4 : 0.7;
+            const shouldPlay = (currentBeat === 0) || (rng() < density);
 
             if (shouldPlay && noteTime >= startTime && noteTime < endTime) {
-                // Pitch Logic:
-                // 1. Determine target chord tone
-                const chordTone = chordDegree + (rng() > 0.5 ? 0 : 2); // Root or 3rd
+                // Pitch selection
+                // 1. Strong beats (0, 2) prefer chord tones
+                const isStrongBeat = (currentBeat % 1 === 0);
                 
-                // 2. Stepwise motion from last note (Random Walk)
-                const step = rng() > 0.5 ? 1 : -1;
-                let candidateDegree = lastMelodyDegree + step;
+                let targetDegree = chordDegree; // Default to Root of chord
 
-                // 3. Gravitate towards chord tone on strong beats
-                if (currentBeat % 2 === 0) {
-                    // Pull towards chord tone
-                    if (candidateDegree < chordTone) candidateDegree++;
-                    else if (candidateDegree > chordTone) candidateDegree--;
-                }
-
-                // 4. Phrasing End Constraint
-                // If end of Question phrase, maybe go up? If Answer, go to Root.
-                if (currentBeat >= 3 && duration >= 1) {
-                    if (isQuestion) candidateDegree = chordDegree + 4; // Unstable 5th
-                    else candidateDegree = chordDegree; // Resolve to Root
-                }
-
-                // Range Clamp
-                if (getMidiPitch(candidateDegree, 0) > 84) candidateDegree -= 7;
-                if (getMidiPitch(candidateDegree, 0) < 60) candidateDegree += 7;
-
-                lastMelodyDegree = candidateDegree;
-
-                // Swing timing adjustment
-                let actualTime = noteTime;
-                let actualDur = duration * BEAT_DURATION;
-                
-                if (SWING_FEEL && duration === 0.5) {
-                    // If it's the "and" of the beat
-                    if (currentBeat % 1 === 0.5) {
-                        // It's technically late, handled by the previous note being long?
-                        // Simplified: Swing pairs usually (Long-Short). 
-                        // We rely on standard quantization here for sheet music readability, 
-                        // but could offset `actualTime` for playback feel.
+                if (isStrongBeat) {
+                    // Choose 1, 3, or 5 of the chord
+                    const chordToneOffsets = [0, 2, 4];
+                    targetDegree += chordToneOffsets[Math.floor(rng() * 3)];
+                } else {
+                    // Passing tones allowed
+                    if (lastMelodyPitch !== -1) {
+                         // Stepwise motion
+                         const dir = rng() > 0.5 ? 1 : -1;
+                         // Reverse direction if too high/low to stay in range
+                         targetDegree = (lastMelodyPitch - rootNote) + dir; // Approx degree
+                    } else {
+                         targetDegree += 2; // Start on 3rd
                     }
                 }
 
+                // Smooth Voice Leading: Try to stay close to last note
+                let finalPitch = getMidiPitch(targetDegree, 0);
+                if (lastMelodyPitch !== -1) {
+                    // Find the octave of targetDegree closest to lastMelodyPitch
+                    // This is a simplified heuristic
+                    const diff = finalPitch - lastMelodyPitch;
+                    if (diff > 8) finalPitch -= 12;
+                    if (diff < -8) finalPitch += 12;
+                }
+
+                // Ensure it's higher than accompaniment
+                const minMelodyPitch = getMidiPitch(chordDegree, -1) + 7;
+                if (finalPitch < minMelodyPitch) finalPitch += 12;
+
                 notes.push({
                     id: `mel_${bar}_${currentBeat}_${Math.floor(rng()*100)}`,
-                    start_time: actualTime,
-                    duration: actualDur * 0.9, // Articulation gap
-                    midi_pitch: getMidiPitch(candidateDegree, 0),
-                    velocity: (currentBeat % 2 === 0) ? 0.9 : 0.7, // Accent downbeats
+                    start_time: noteTime,
+                    duration: duration * BEAT_DURATION * 0.95, // Articulation
+                    midi_pitch: finalPitch,
+                    velocity: isStrongBeat ? 0.8 : 0.6,
                     confidence: 0.95
                 });
-                
-                notesInBar++;
+
+                lastMelodyPitch = finalPitch;
             }
             
             currentBeat += duration;
@@ -297,7 +303,8 @@ const App: React.FC = () => {
     showOctave: true,
     showCentOffset: false,
     position: 'above',
-    minConfidence: 0.4
+    minConfidence: 0.4,
+    keyboardSize: 61 // Default 61 keys
   });
 
   const [segmentDuration, setSegmentDuration] = useState<30 | 60 | 90>(30);
@@ -364,7 +371,7 @@ const App: React.FC = () => {
                 newNotes = realNotes;
             } else if (audioState.sourceType === 'youtube' && ytVideoId) {
                 // DETERMINISTIC COMPOSITION: Polyphonic Engine seeded by Video ID
-                newNotes = generateDeterministicNotes(ytVideoId, startTime, endTime);
+                newNotes = generateDeterministicNotes(ytVideoId, startTime, endTime, labelSettings.keyboardSize);
             }
         } catch (e) {
             console.error(e);

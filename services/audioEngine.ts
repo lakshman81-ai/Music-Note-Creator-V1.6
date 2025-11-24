@@ -74,7 +74,7 @@ export class AudioEngine {
   }
 
   /**
-   * Synthesize a tone for a specific MIDI pitch
+   * Synthesize a tone for a specific MIDI pitch using a piano-like synthesis
    * @param midiPitch The MIDI note number (e.g., 60 for Middle C)
    * @param duration Duration in seconds
    */
@@ -84,31 +84,70 @@ export class AudioEngine {
     // Resume if suspended (user interaction requirement)
     this.resume();
 
-    const osc = this.audioContext.createOscillator();
-    const gainNode = this.audioContext.createGain();
-
-    // Convert MIDI to Frequency: f = 440 * 2^((d-69)/12)
-    const frequency = 440 * Math.pow(2, (midiPitch - 69) / 12);
-    
-    osc.type = 'triangle'; // Soft, clear tone
-    osc.frequency.setValueAtTime(frequency, this.audioContext.currentTime);
-
-    // Envelope (Attack -> Decay)
     const now = this.audioContext.currentTime;
-    gainNode.gain.setValueAtTime(0, now);
-    gainNode.gain.linearRampToValueAtTime(0.2, now + 0.05); // Attack
-    gainNode.gain.exponentialRampToValueAtTime(0.001, now + duration); // Decay
+    const frequency = 440 * Math.pow(2, (midiPitch - 69) / 12);
 
-    osc.connect(gainNode);
-    gainNode.connect(this.audioContext.destination);
+    // Master Gain for this note
+    const masterGain = this.audioContext.createGain();
+    masterGain.connect(this.audioContext.destination);
+    
+    // Envelope
+    masterGain.gain.setValueAtTime(0, now);
+    masterGain.gain.linearRampToValueAtTime(0.3, now + 0.015); // Fast Attack
+    masterGain.gain.exponentialRampToValueAtTime(0.001, now + duration * 1.5); // Long release/decay
 
-    osc.start();
-    osc.stop(now + duration);
+    // 1. Fundamental Oscillator (Triangle/Sine hybrid)
+    const osc1 = this.audioContext.createOscillator();
+    osc1.type = 'triangle';
+    osc1.frequency.setValueAtTime(frequency, now);
+    osc1.connect(masterGain);
 
-    // Track active oscillator
-    this.activeOscillators.add(osc);
-    osc.onended = () => {
-        this.activeOscillators.delete(osc);
+    // 2. Second Oscillator (Sine - adds body)
+    const osc2 = this.audioContext.createOscillator();
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(frequency, now);
+    // Detune slightly for chorus effect
+    osc2.detune.setValueAtTime(4, now);
+
+    const gain2 = this.audioContext.createGain();
+    gain2.gain.value = 0.5;
+    osc2.connect(gain2);
+    gain2.connect(masterGain);
+
+    // 3. Harmonics (Sawtooth - adds brightness/hammer strike)
+    const osc3 = this.audioContext.createOscillator();
+    osc3.type = 'sawtooth';
+    osc3.frequency.setValueAtTime(frequency, now);
+
+    const gain3 = this.audioContext.createGain();
+    // Decay brightness quickly to simulate hammer strike
+    gain3.gain.setValueAtTime(0.1, now);
+    gain3.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+
+    // Filter the sawtooth to remove harshness
+    const filter = this.audioContext.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(frequency * 4, now);
+
+    osc3.connect(gain3);
+    gain3.connect(filter);
+    filter.connect(masterGain);
+
+    // Start all
+    osc1.start(now);
+    osc2.start(now);
+    osc3.start(now);
+
+    // Stop all
+    const stopTime = now + duration + 1.0; // Allow tail
+    osc1.stop(stopTime);
+    osc2.stop(stopTime);
+    osc3.stop(stopTime);
+
+    // Track active oscillators
+    [osc1, osc2, osc3].forEach(osc => this.activeOscillators.add(osc));
+    osc1.onended = () => {
+        [osc1, osc2, osc3].forEach(osc => this.activeOscillators.delete(osc));
     };
   }
 

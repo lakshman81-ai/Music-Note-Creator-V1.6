@@ -57,8 +57,12 @@ const generateDeterministicNotes = (videoId: string, startTime: number, endTime:
         // Constraint Logic
         let minPitch = 36; // C2
         let maxPitch = 96; // C7
-        if (keyboardSize === 49) { minPitch = 36; maxPitch = 84; }
-        if (keyboardSize === 88) { minPitch = 21; maxPitch = 108; }
+
+        if (keyboardSize === 37) { minPitch = 53; maxPitch = 89; } // F3 - F6
+        if (keyboardSize === 49) { minPitch = 36; maxPitch = 84; } // C2 - C6
+        if (keyboardSize === 54) { minPitch = 36; maxPitch = 89; } // C2 - F6
+        if (keyboardSize === 76) { minPitch = 28; maxPitch = 103; } // E1 - G7
+        if (keyboardSize === 88) { minPitch = 21; maxPitch = 108; } // A0 - C8
 
         while (pitch < minPitch) pitch += 12;
         while (pitch > maxPitch) pitch -= 12;

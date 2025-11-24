@@ -199,28 +199,34 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, labelSet
 
           {activeTab === 'keyboard' && (
              <section className="space-y-6">
-                 <div className="space-y-3">
-                    <label className="text-sm font-medium text-zinc-300">Keyboard Size (Keys)</label>
-                    <div className="grid grid-cols-3 gap-3">
-                        {[49, 61, 88].map(size => (
+                 <div className="space-y-4">
+                    <label className="text-sm font-medium text-zinc-300">Keyboard Size & Range</label>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        {[
+                          { size: 37, label: 'Mini', range: 'F3 - F6' },
+                          { size: 49, label: 'Synth', range: 'C2 - C6' },
+                          { size: 54, label: 'Toy / Entry', range: 'C2 - F6' },
+                          { size: 61, label: 'Standard', range: 'C2 - C7' },
+                          { size: 76, label: 'Semi-Weighted', range: 'E1 - G7' },
+                          { size: 88, label: 'Full Piano', range: 'A0 - C8' }
+                        ].map((opt) => (
                             <button
-                                key={size}
-                                onClick={() => handleChange('keyboardSize', size)}
-                                className={`py-3 px-4 rounded-lg border text-sm font-semibold transition-all ${
-                                    labelSettings.keyboardSize === size
+                                key={opt.size}
+                                onClick={() => handleChange('keyboardSize', opt.size)}
+                                className={`flex flex-col items-start py-3 px-4 rounded-lg border text-left transition-all relative overflow-hidden ${
+                                    labelSettings.keyboardSize === opt.size
                                     ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-500/20'
                                     : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:bg-zinc-800 hover:border-zinc-600'
                                 }`}
                             >
-                                {size} Keys
-                                <span className="block text-[10px] font-normal opacity-70 mt-1">
-                                    {size === 49 ? 'C2 - C6' : size === 61 ? 'C2 - C7' : 'A0 - C8'}
-                                </span>
+                                <span className="text-sm font-bold">{opt.size} Keys</span>
+                                <span className={`text-[11px] mt-0.5 ${labelSettings.keyboardSize === opt.size ? 'text-indigo-200' : 'text-zinc-500'}`}>{opt.label}</span>
+                                <span className={`text-[10px] font-mono mt-1 opacity-60`}>{opt.range}</span>
                             </button>
                         ))}
                     </div>
                     <p className="text-xs text-zinc-500 mt-2">
-                        Controls the range of generated notes for YouTube videos.
+                        Generated notes will be constrained to fit within the selected instrument's range.
                     </p>
                  </div>
              </section>

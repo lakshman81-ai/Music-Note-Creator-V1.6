@@ -198,10 +198,31 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, labelSet
           )}
 
           {activeTab === 'keyboard' && (
-             <section className="space-y-4 opacity-70 pointer-events-none grayscale">
-                <div className="p-8 text-center border-2 border-dashed border-zinc-800 rounded-lg">
-                    <h3 className="text-zinc-500 font-medium">Keyboard settings moved to dedicated modal in future update</h3>
-                </div>
+             <section className="space-y-6">
+                 <div className="space-y-3">
+                    <label className="text-sm font-medium text-zinc-300">Keyboard Size (Keys)</label>
+                    <div className="grid grid-cols-3 gap-3">
+                        {[49, 61, 88].map(size => (
+                            <button
+                                key={size}
+                                onClick={() => handleChange('keyboardSize', size)}
+                                className={`py-3 px-4 rounded-lg border text-sm font-semibold transition-all ${
+                                    labelSettings.keyboardSize === size
+                                    ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-500/20'
+                                    : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:bg-zinc-800 hover:border-zinc-600'
+                                }`}
+                            >
+                                {size} Keys
+                                <span className="block text-[10px] font-normal opacity-70 mt-1">
+                                    {size === 49 ? 'C2 - C6' : size === 61 ? 'C2 - C7' : 'A0 - C8'}
+                                </span>
+                            </button>
+                        ))}
+                    </div>
+                    <p className="text-xs text-zinc-500 mt-2">
+                        Controls the range of generated notes for YouTube videos.
+                    </p>
+                 </div>
              </section>
           )}
 

@@ -74,4 +74,5 @@ export interface LabelSettings {
   showCentOffset: boolean;
   position: 'above' | 'inside' | 'below';
   minConfidence: number;
+  keyboardSize: 49 | 61 | 88;
 }

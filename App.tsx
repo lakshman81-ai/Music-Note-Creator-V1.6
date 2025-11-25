@@ -1,15 +1,17 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { NoteEvent, AudioState, HistoryEntry, LabelSettings } from './types';
-import { PlayIcon, PauseIcon, UploadIcon, SettingsIcon, DownloadIcon, MusicIcon, HistoryIcon, TrashIcon, ActivityIcon, SegmentIcon, NextIcon, ChevronLeftIcon, ChevronRightIcon, MinusIcon, PlusIcon } from './components/Icons';
+import { PlayIcon, PauseIcon, UploadIcon, SettingsIcon, DownloadIcon, MusicIcon, HistoryIcon, TrashIcon, ActivityIcon, SegmentIcon, NextIcon, ChevronLeftIcon, ChevronRightIcon, MinusIcon, PlusIcon, LightBulbIcon } from './components/Icons';
 import Equalizer from './components/Equalizer';
 import SheetMusic from './components/SheetMusic';
 import ConfidenceHeatmap from './components/ConfidenceHeatmap';
 import SettingsModal from './components/SettingsModal';
 import HistoryModal from './components/HistoryModal';
+import SuggestionPopup from './components/SuggestionPopup';
 import YouTubePlayer from './components/YouTubePlayer';
 import { Toast, ToastType } from './components/Toast';
 import { audioEngine } from './services/audioEngine';
 import { HistoryService } from './services/historyService';
+import { SuggestionService, SuggestedSettings } from './services/suggestionService';
 import { RHYTHM_PATTERNS } from './components/constants';
 
 // --- Deterministic & Composition Engine ---
@@ -323,6 +325,10 @@ const App: React.FC = () => {
   const [isRhythmPlaying, setIsRhythmPlaying] = useState(false);
   const [bpm, setBpm] = useState(100);
 
+  // Suggestion State
+  const [suggestedSettings, setSuggestedSettings] = useState<SuggestedSettings | null>(null);
+  const [isSuggestionOpen, setIsSuggestionOpen] = useState(false);
+
   useEffect(() => { notesRef.current = notes; }, [notes]);
   useEffect(() => { sequencerSpeedRef.current = sequencerSpeed; }, [sequencerSpeed]);
 
@@ -417,6 +423,12 @@ const App: React.FC = () => {
         setProcessedSegments(prev => new Set(prev).add(index));
         setIsProcessing(false);
         showToast("Notes Generated", 'success');
+
+        const suggestions = SuggestionService.generateSuggestions(newNotes);
+        if (suggestions) {
+            setSuggestedSettings(suggestions);
+            setIsSuggestionOpen(true);
+        }
         
     }, 500);
   };
@@ -702,6 +714,33 @@ const App: React.FC = () => {
     if (note) audioEngine.playTone(note.midi_pitch, note.duration, labelSettings.selectedVoice);
   };
 
+  const handleAcceptSuggestion = () => {
+    if (suggestedSettings) {
+      setLabelSettings(prev => ({
+        ...prev,
+        selectedVoice: suggestedSettings.voice,
+        selectedStyle: suggestedSettings.style,
+      }));
+      setBpm(suggestedSettings.bpm);
+      showToast("Settings applied", "success");
+    }
+    setIsSuggestionOpen(false);
+  };
+
+  const handleRejectSuggestion = () => {
+    setIsSuggestionOpen(false);
+  };
+
+  const handleSuggestSettings = () => {
+    const suggestions = SuggestionService.generateSuggestions(notes);
+    if (suggestions) {
+      setSuggestedSettings(suggestions);
+      setIsSuggestionOpen(true);
+    } else {
+      showToast("Not enough data for a suggestion", "info");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-200 flex flex-col font-sans selection:bg-indigo-500/30">
       
@@ -714,6 +753,13 @@ const App: React.FC = () => {
       
       <HistoryModal 
         isOpen={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} onLoadEntry={() => {}}
+      />
+
+      <SuggestionPopup
+        isOpen={isSuggestionOpen}
+        settings={suggestedSettings}
+        onAccept={handleAcceptSuggestion}
+        onReject={handleRejectSuggestion}
       />
 
       {segmentConfirmationOpen && (
@@ -838,6 +884,10 @@ const App: React.FC = () => {
                     <span className="text-xs font-medium text-zinc-400 flex items-center gap-1.5">
                         <SegmentIcon className="w-3 h-3" /> Analysis Segment
                     </span>
+                    <div className="flex items-center gap-2">
+                    <button onClick={handleSuggestSettings} className="p-1.5 text-zinc-400 hover:text-white bg-zinc-800/50 rounded-lg">
+                        <LightBulbIcon className="w-4 h-4" />
+                    </button>
                     <select 
                         value={segmentDuration}
                         onChange={(e) => { setSegmentDuration(Number(e.target.value) as any); resetSession(); }}
@@ -847,6 +897,7 @@ const App: React.FC = () => {
                         <option value={60}>60 Seconds</option>
                         <option value={90}>90 Seconds</option>
                     </select>
+                    </div>
                 </div>
 
                 {/* Rhythm Controls */}

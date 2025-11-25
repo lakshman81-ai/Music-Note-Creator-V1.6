@@ -308,7 +308,9 @@ const App: React.FC = () => {
     showCentOffset: false,
     position: 'above',
     minConfidence: 0.4,
-    keyboardSize: 61 // Default 61 keys
+    keyboardSize: 61, // Default 61 keys
+    repeatDelay: 280,
+    repeatRate: 'slow'
   });
 
   const [segmentDuration, setSegmentDuration] = useState<30 | 60 | 90>(30);

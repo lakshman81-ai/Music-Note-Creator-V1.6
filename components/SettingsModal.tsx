@@ -229,6 +229,45 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, labelSet
                         Generated notes will be constrained to fit within the selected instrument's range.
                     </p>
                  </div>
+
+                 <div className="space-y-4 pt-4 border-t border-zinc-800">
+                    <label className="text-sm font-medium text-zinc-300">Repeat Settings</label>
+
+                    {/* Repeat Delay */}
+                    <div className="space-y-2">
+                        <div className="flex justify-between">
+                            <label className="text-xs font-medium text-zinc-400">Repeat Delay</label>
+                            <span className="text-xs text-zinc-500">{labelSettings.repeatDelay} ms</span>
+                        </div>
+                        <input
+                            type="range"
+                            min="200" max="1000" step="10"
+                            value={labelSettings.repeatDelay}
+                            onChange={(e) => handleChange('repeatDelay', parseInt(e.target.value))}
+                            className="w-full accent-indigo-500 h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer"
+                        />
+                    </div>
+
+                    {/* Repeat Rate */}
+                    <div className="space-y-2">
+                        <label className="text-xs font-medium text-zinc-400">Repeat Rate</label>
+                        <div className="flex bg-zinc-950 p-1 rounded-lg border border-zinc-800">
+                            {(['slow', 'fast'] as const).map((rate) => (
+                                <button
+                                    key={rate}
+                                    onClick={() => handleChange('repeatRate', rate)}
+                                    className={`flex-1 py-1.5 text-xs font-medium rounded transition-all capitalize ${
+                                        labelSettings.repeatRate === rate
+                                        ? 'bg-indigo-600 text-white shadow'
+                                        : 'text-zinc-500 hover:text-zinc-300'
+                                    }`}
+                                >
+                                    {rate}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                 </div>
              </section>
           )}
 

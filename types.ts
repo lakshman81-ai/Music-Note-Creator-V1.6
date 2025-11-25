@@ -75,4 +75,6 @@ export interface LabelSettings {
   position: 'above' | 'inside' | 'below';
   minConfidence: number;
   keyboardSize: 37 | 49 | 54 | 61 | 76 | 88;
+  repeatDelay: number;
+  repeatRate: 'slow' | 'fast';
 }

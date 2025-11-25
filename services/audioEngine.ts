@@ -90,7 +90,7 @@ export class AudioEngine {
    * @param voice The instrument voice ID
    */
   playTone(midiPitch: number, duration: number = 0.5, voice: string = 'piano') {
-    if (!this.audioContext) return;
+    if (!this.audioContext || !isFinite(midiPitch) || !isFinite(duration) || duration <= 0) return;
 
     // Resume if suspended (user interaction requirement)
     this.resume();
@@ -101,7 +101,7 @@ export class AudioEngine {
     masterGain.connect(this.audioContext.destination);
 
     // Timbre Synthesis Logic
-    if (voice.startsWith('harmonium') || voice === 'shenai') {
+    if ((voice && voice.startsWith('harmonium')) || voice === 'shenai') {
         // Reed-like sound (Sawtooth/Square mix)
         const osc1 = this.audioContext.createOscillator();
         osc1.type = 'sawtooth';
@@ -264,7 +264,7 @@ export class AudioEngine {
   // --- Rhythm Engine ---
 
   playDrumSound(sound: string, velocity: number) {
-      if (!this.audioContext) return;
+      if (!this.audioContext || typeof sound !== 'string') return;
       const t = this.audioContext.currentTime;
 
       const gain = this.audioContext.createGain();
@@ -281,7 +281,7 @@ export class AudioEngine {
           osc.stop(t + 0.5);
       }
 
-      if (sound === 'snare' || sound === 'tabla_na' || sound === 'tabla_tin' || sound.includes('hihat')) {
+      if (sound === 'snare' || sound === 'tabla_na' || sound === 'tabla_tin' || (sound && sound.includes('hihat'))) {
           // Noise
           const bufferSize = this.audioContext.sampleRate * 0.5;
           const buffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
@@ -292,7 +292,7 @@ export class AudioEngine {
           noise.buffer = buffer;
 
           const filter = this.audioContext.createBiquadFilter();
-          if (sound.includes('hihat')) {
+          if (sound && sound.includes('hihat')) {
               filter.type = 'highpass';
               filter.frequency.value = 7000;
               gain.gain.exponentialRampToValueAtTime(0.01, t + (sound === 'hihat_open' ? 0.3 : 0.05));
@@ -529,7 +529,8 @@ export class AudioEngine {
       }
       
       let T0 = maxpos;
-      if (T0 === -1) return -1;
+      // Rigorous check for a valid period
+      if (T0 === -1 || T0 === 0) return -1;
 
       return sampleRate / T0;
   }

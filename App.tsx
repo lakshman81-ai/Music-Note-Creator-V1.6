@@ -10,6 +10,7 @@ import YouTubePlayer from './components/YouTubePlayer';
 import { Toast, ToastType } from './components/Toast';
 import { audioEngine } from './services/audioEngine';
 import { HistoryService } from './services/historyService';
+import { RHYTHM_PATTERNS } from './components/constants';
 
 // --- Deterministic & Composition Engine ---
 
@@ -308,7 +309,9 @@ const App: React.FC = () => {
     showCentOffset: false,
     position: 'above',
     minConfidence: 0.4,
-    keyboardSize: 61 // Default 61 keys
+    keyboardSize: 61,
+    selectedVoice: 'piano',
+    selectedStyle: 'none'
   });
 
   const [segmentDuration, setSegmentDuration] = useState<30 | 60 | 90>(30);
@@ -316,8 +319,29 @@ const App: React.FC = () => {
   const [processedSegments, setProcessedSegments] = useState<Set<number>>(new Set());
   const [segmentConfirmationOpen, setSegmentConfirmationOpen] = useState(false);
 
+  // Rhythm State
+  const [isRhythmPlaying, setIsRhythmPlaying] = useState(false);
+  const [bpm, setBpm] = useState(100);
+
   useEffect(() => { notesRef.current = notes; }, [notes]);
   useEffect(() => { sequencerSpeedRef.current = sequencerSpeed; }, [sequencerSpeed]);
+
+  // Handle Rhythm Playback
+  useEffect(() => {
+      const styleId = labelSettings.selectedStyle;
+      if (isRhythmPlaying && styleId && styleId !== 'none') {
+          const pattern = RHYTHM_PATTERNS[styleId];
+          if (pattern) {
+              audioEngine.startRhythm(pattern, bpm);
+          } else {
+             // Fallback or metronome
+             audioEngine.stopRhythm();
+          }
+      } else {
+          audioEngine.stopRhythm();
+      }
+      return () => audioEngine.stopRhythm();
+  }, [isRhythmPlaying, labelSettings.selectedStyle, bpm]);
 
   const showToast = (message: string, type: ToastType) => {
     setToast({ message: type === 'loading' ? 'Loading...' : message, type });
@@ -526,7 +550,8 @@ const App: React.FC = () => {
             const notesToPlay = notesRef.current.filter(n => 
                 n.start_time >= prev.currentTime && n.start_time < newTime
             );
-            notesToPlay.forEach(n => audioEngine.playTone(n.midi_pitch, n.duration));
+            // Use selected voice for playback
+            notesToPlay.forEach(n => audioEngine.playTone(n.midi_pitch, n.duration, labelSettings.selectedVoice));
 
             if (newTime >= end) {
                 stopSequencer();
@@ -674,7 +699,7 @@ const App: React.FC = () => {
   const handleNoteClick = (noteId: string) => {
     setSelectedNoteId(noteId);
     const note = notes.find(n => n.id === noteId);
-    if (note) audioEngine.playTone(note.midi_pitch);
+    if (note) audioEngine.playTone(note.midi_pitch, note.duration, labelSettings.selectedVoice);
   };
 
   return (
@@ -823,6 +848,29 @@ const App: React.FC = () => {
                         <option value={90}>90 Seconds</option>
                     </select>
                 </div>
+
+                {/* Rhythm Controls */}
+                {labelSettings.selectedStyle !== 'none' && (
+                  <div className="flex items-center justify-between bg-zinc-950 p-2 rounded-lg border border-zinc-800">
+                      <span className="text-xs font-medium text-zinc-400 flex items-center gap-1.5">
+                          Rhythm ({labelSettings.selectedStyle})
+                      </span>
+                      <div className="flex items-center gap-2">
+                           <input
+                              type="number" value={bpm} onChange={(e) => setBpm(Number(e.target.value))}
+                              className="w-12 bg-zinc-800 text-xs text-center border border-zinc-700 rounded py-1"
+                              min="40" max="240"
+                           />
+                           <span className="text-[10px] text-zinc-500">BPM</span>
+                           <button
+                             onClick={() => setIsRhythmPlaying(!isRhythmPlaying)}
+                             className={`p-1.5 rounded transition-colors ${isRhythmPlaying ? 'bg-indigo-600 text-white' : 'bg-zinc-800 text-zinc-400'}`}
+                           >
+                              {isRhythmPlaying ? <PauseIcon className="w-3 h-3" /> : <PlayIcon className="w-3 h-3" />}
+                           </button>
+                      </div>
+                  </div>
+                )}
 
                 <div className="w-full flex flex-col gap-1 group">
                     <input 

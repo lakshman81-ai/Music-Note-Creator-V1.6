@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { XIcon } from './Icons';
 import { LabelSettings } from '../types';
+import { VOICES, STYLES } from './constants';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -10,7 +11,7 @@ interface SettingsModalProps {
 }
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, labelSettings, onLabelSettingsChange }) => {
-  const [activeTab, setActiveTab] = useState<'keyboard'|'notation'>('notation');
+  const [activeTab, setActiveTab] = useState<'keyboard'|'notation'|'sound'>('notation');
 
   if (!isOpen) return null;
 
@@ -43,6 +44,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, labelSet
                 className={`text-sm font-semibold transition-colors ${activeTab === 'keyboard' ? 'text-white border-b-2 border-indigo-500' : 'text-zinc-500 hover:text-zinc-300'}`}
              >
                 Keyboard
+             </button>
+             <button
+                onClick={() => setActiveTab('sound')}
+                className={`text-sm font-semibold transition-colors ${activeTab === 'sound' ? 'text-white border-b-2 border-indigo-500' : 'text-zinc-500 hover:text-zinc-300'}`}
+             >
+                Sound & Rhythm
              </button>
           </div>
           <button onClick={onClose} className="p-1 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-colors">
@@ -228,6 +235,59 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, labelSet
                     <p className="text-xs text-zinc-500 mt-2">
                         Generated notes will be constrained to fit within the selected instrument's range.
                     </p>
+                 </div>
+             </section>
+          )}
+
+          {activeTab === 'sound' && (
+             <section className="space-y-6">
+                 <div className="space-y-6">
+                    <div>
+                        <h3 className="text-sm font-bold text-indigo-400 uppercase tracking-wider mb-4">Instrument Voice</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {['Piano', 'Indian', 'Strings', 'Guitar', 'Synth'].map(cat => (
+                                <div key={cat} className="space-y-2">
+                                    <h4 className="text-xs font-semibold text-zinc-500 uppercase">{cat}</h4>
+                                    <div className="space-y-1">
+                                        {VOICES.filter(v => v.category === cat).map(voice => (
+                                            <label key={voice.id} className="flex items-center space-x-3 p-2 rounded hover:bg-zinc-800/50 cursor-pointer group">
+                                                <input
+                                                    type="radio"
+                                                    name="voice_select"
+                                                    checked={labelSettings.selectedVoice === voice.id}
+                                                    onChange={() => handleChange('selectedVoice', voice.id)}
+                                                    className="text-indigo-500 bg-zinc-900 border-zinc-700 focus:ring-indigo-500"
+                                                />
+                                                <span className={`text-sm group-hover:text-zinc-200 ${labelSettings.selectedVoice === voice.id ? 'text-white font-medium' : 'text-zinc-400'}`}>
+                                                    {voice.name}
+                                                </span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="border-t border-zinc-800 pt-6">
+                        <h3 className="text-sm font-bold text-indigo-400 uppercase tracking-wider mb-4">Rhythm / Style</h3>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                             {STYLES.map(style => (
+                                 <button
+                                    key={style.id}
+                                    onClick={() => handleChange('selectedStyle', style.id)}
+                                    className={`text-left px-3 py-2 rounded-lg text-sm border transition-all ${
+                                        labelSettings.selectedStyle === style.id
+                                        ? 'bg-indigo-900/40 border-indigo-500 text-indigo-200'
+                                        : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-zinc-300'
+                                    }`}
+                                 >
+                                     <div className="font-medium">{style.name}</div>
+                                     <div className="text-[10px] opacity-60 font-mono mt-0.5">{style.timeSignature}</div>
+                                 </button>
+                             ))}
+                        </div>
+                    </div>
                  </div>
              </section>
           )}

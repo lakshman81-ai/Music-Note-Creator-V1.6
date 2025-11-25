@@ -23,7 +23,7 @@ export interface AudioState {
   duration: number;
   volume: number;
   sourceUrl: string | null;
-  sourceType: 'file' | 'youtube' | 'mic';
+  sourceType: 'file' | 'youtube';
 }
 
 export interface AnalysisMetric {
@@ -75,4 +75,6 @@ export interface LabelSettings {
   position: 'above' | 'inside' | 'below';
   minConfidence: number;
   keyboardSize: 37 | 49 | 54 | 61 | 76 | 88;
+  selectedVoice: string;
+  selectedStyle: string;
 }

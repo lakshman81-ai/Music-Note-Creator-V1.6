@@ -791,7 +791,7 @@ const App: React.FC = () => {
       <audio 
         ref={audioRef} 
         key={`${audioCrossOrigin}-${audioState.sourceUrl}`} 
-        src={audioState.sourceType === 'file' ? (audioState.sourceUrl || '') : ''} 
+        src={audioState.sourceType === 'file' ? audioState.sourceUrl : undefined}
         crossOrigin={audioCrossOrigin}
         onTimeUpdate={handleNativeTimeUpdate}
         onEnded={() => setAudioState(prev => ({ ...prev, isPlaying: false }))}
